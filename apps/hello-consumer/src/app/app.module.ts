@@ -10,7 +10,7 @@ import { AppService } from './app.service';
     {
       provide: AppService,
       useFactory() {
-        return new AppService('http://localhost:3333/api/hello');
+        return new AppService(process.env.APIURL ?? 'http://localhost:3333/api/hello');
       },
     },
   ],

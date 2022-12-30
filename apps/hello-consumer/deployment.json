@@ -1,0 +1,43 @@
+{
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "name": "hello-consumer"
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "hello-consumer"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "hello-consumer"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "name": "hello-consumer",
+              "image": "hello-consumer:latest",
+              "imagePullPolicy": "Never",
+              "env": [
+                {
+                  "name": "APIURL",
+                  "value": "http://hello-provider-service.default.svc.cluster.local/api/hello"
+                }
+              ],
+              "ports": [
+                {
+                  "containerPort": 3000
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+  
