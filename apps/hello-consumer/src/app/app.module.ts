@@ -6,6 +6,13 @@ import { AppService } from './app.service';
 @Module({
   imports: [],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    {
+      provide: AppService,
+      useFactory() {
+        return new AppService('http://localhost:3333/api/hello');
+      },
+    },
+  ],
 })
 export class AppModule {}

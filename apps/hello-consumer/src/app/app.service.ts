@@ -1,8 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import axios from 'axios';
 
 @Injectable()
 export class AppService {
-  getData(): { message: string } {
-    return { message: 'Welcome to hello-consumer!' };
+  constructor(private readonly url: string) {}
+
+  async getData(): Promise<string> {
+    const res = await axios.get(this.url);
+    return res.data;
   }
 }
