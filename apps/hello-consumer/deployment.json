@@ -1,43 +1,69 @@
 {
-    "apiVersion": "apps/v1",
-    "kind": "Deployment",
-    "metadata": {
-      "name": "hello-consumer"
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "hello-consumer"
+  },
+  "spec": {
+    "replicas": 1,
+    "selector": {
+      "matchLabels": {
+        "app": "hello-consumer"
+      }
     },
-    "spec": {
-      "replicas": 1,
-      "selector": {
-        "matchLabels": {
+    "template": {
+      "metadata": {
+        "labels": {
           "app": "hello-consumer"
         }
       },
-      "template": {
-        "metadata": {
-          "labels": {
-            "app": "hello-consumer"
+      "spec": {
+        "containers": [
+          {
+            "name": "hello-consumer",
+            "image": "hello-consumer:latest",
+            "imagePullPolicy": "Never",
+            "env": [
+              {
+                "name": "APIURL",
+                "value": "http://hello-provider-service.default.svc.cluster.local/api/hello"
+              },
+              {
+                "name": "REDIS_PASSWORD",
+                "valueFrom": {
+                  "configMapKeyRef": {
+                    "name": "redis-config",
+                    "key": "redis.password"
+                  }
+                }
+              },
+              {
+                "name": "REDIS_HOST",
+                "valueFrom": {
+                  "configMapKeyRef": {
+                    "name": "redis-config",
+                    "key": "redis.host"
+                  }
+                }
+              },
+              {
+                "name": "JWTSECRET",
+                "valueFrom": {
+                  "configMapKeyRef": {
+                    "name": "jwt-config",
+                    "key": "jwt.secret"
+                  }
+                }
+              }
+            ],
+            "ports": [
+              {
+                "containerPort": 3000
+              }
+            ]
           }
-        },
-        "spec": {
-          "containers": [
-            {
-              "name": "hello-consumer",
-              "image": "hello-consumer:latest",
-              "imagePullPolicy": "Never",
-              "env": [
-                {
-                  "name": "APIURL",
-                  "value": "http://hello-provider-service.default.svc.cluster.local/api/hello"
-                }
-              ],
-              "ports": [
-                {
-                  "containerPort": 3000
-                }
-              ]
-            }
-          ]
-        }
+        ]
       }
     }
   }
-  
+}

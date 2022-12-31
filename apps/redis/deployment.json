@@ -2,39 +2,38 @@
     "apiVersion": "apps/v1",
     "kind": "Deployment",
     "metadata": {
-      "name": "hello-provider"
+      "name": "redis-server"
     },
     "spec": {
       "replicas": 1,
       "selector": {
         "matchLabels": {
-          "app": "hello-provider"
+          "app": "redis-server"
         }
       },
       "template": {
         "metadata": {
           "labels": {
-            "app": "hello-provider"
+            "app": "redis-server"
           }
         },
         "spec": {
           "containers": [
             {
-              "name": "hello-provider",
-              "image": "hello-provider:latest",
-              "imagePullPolicy": "Never",
+              "name": "redis-server",
+              "image": "bitnami/redis:6.2.6",
               "ports": [
                 {
-                  "containerPort": 3333
+                  "containerPort": 6379
                 }
               ],
               "env": [
                 {
-                  "name": "JWTSECRET",
+                  "name": "REDIS_PASSWORD",
                   "valueFrom": {
                     "configMapKeyRef": {
-                      "name": "jwt-config",
-                      "key": "jwt.secret"
+                      "name": "redis-config",
+                      "key": "redis.password"
                     }
                   }
                 }
@@ -45,4 +44,3 @@
       }
     }
   }
-  
