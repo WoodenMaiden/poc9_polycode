@@ -1,30 +1,29 @@
 #!/bin/env bash
-
 set -e
+
+red=$(tput setaf 1)
+yellow=$(tput setaf 3)
+green=$(tput setaf 2)
+normal=$(tput sgr0)
 
 # This script is used to initialize the environment
 
+function exists {
+    echo "Checking dependencies: $@"
+    for (( i=1; i<=$#; i++))
+    {
+        eval cmd=\$$i
+        if ! command -v "$cmd" &> /dev/null
+        then
+            echo "$red$cmd could not be found$normal"
+            exit 1
+        fi
+    }
+}
+
+
 # Install dependencies
-# node
-if ! command -v npm &> /dev/null
-then
-    echo "npm could not be found"
-    exit
-fi
-
-# minikube
-if ! command -v minikube &> /dev/null
-then
-    echo "minikube could not be found"
-    exit
-fi
-
-# kubectl
-if ! command -v kubectl &> /dev/null
-then
-    echo "kubectl could not be found"
-    exit
-fi
+exists npm minikube kubectl cfssl cfssljson
 
 # Start minikube
 if [ ! $(minikube status | grep -c "Running") -eq 1 ]
@@ -34,32 +33,31 @@ fi
 
 eval $(minikube -p minikube docker-env)
 
-echo "Building apps"
-npx nx build hello-consumer
-npx nx build hello-provider
+echo "${yellow}🔨 Building apps$normal"
+npx nx build hello-consumer &
+npx nx build hello-provider &
+wait
 
-echo 'Building docker images'
-docker build -f apps/hello-consumer/Dockerfile -t hello-consumer .
-docker build -f apps/hello-provider/Dockerfile -t hello-provider .
+echo "${yellow}🔨 Building docker images$normal"
+docker build -f apps/hello-consumer/Dockerfile -t hello-consumer . &
+docker build -f apps/hello-provider/Dockerfile -t hello-provider . &
+wait
 
-echo "Deploying secrets"
+echo "${yellow}🤫 Deploying secrets$normal"
+# kubectl apply -f apps/vault/namespace.json
 kubectl apply -f apps/misc/secrets/redis_secrets.json
 kubectl apply -f apps/misc/secrets/jwt_secrets.json
 
-echo "Deploying apps"
 
-kubectl apply -f apps/redis/deployment.json
-kubectl apply -f apps/redis/service.json
+echo "${yellow}🖥️ Deploying the app $normal"
+kubectl apply -f ./apps/kubeview/kubeview.yaml &
+find . -name "service.json" -exec kubectl apply -f {} \; 
+find . -name deployment.json -exec kubectl apply -f {} \; 
 
-kubectl apply -f apps/hello-consumer/deployment.json
-kubectl apply -f apps/hello-provider/deployment.json
-
-kubectl apply -f apps/hello-consumer/service.json
-kubectl apply -f apps/hello-provider/service.json
-
+wait
 
 url="$(minikube service hello-consumer-service --url)"
-echo "App ready! Use it with the following commands"
+echo "🚀 ${green}App ready! Use it with the following commands$normal"
 echo "curl --location --request POST '$url/api/signup' \
 --header 'Content-Type: application/json' \
 --data-raw '{\"username\": \"Yann\", \"password\": \"password\"}'"
@@ -67,3 +65,7 @@ echo "curl --location --request POST '$url/api/signup' \
 echo "curl --location --request GET '$url/api/hello' \
 --header 'Content-Type: application/json' \
 --header 'Authorization: Bearer <token you got previously>'"
+
+echo "Run the following command to get an acess token to Consul: kubectl get secrets/consul-bootstrap-acl-token --template='{{.data.token | base64decode }}'"
+echo "Run the following command to map Consul to your local machine: kubectl port-forward -n consul service/consul-ui 8080:443 --address 0.0.0.0"
+echo "Kubeview is also available on your browser at $(minikube service kubeview --url) to have an overview of the cluster"

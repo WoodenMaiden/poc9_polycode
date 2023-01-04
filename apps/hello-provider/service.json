@@ -1,22 +1,21 @@
 {
-    "kind": "Service",
-    "apiVersion": "v1",
-    "metadata": {
-      "name": "hello-provider-service"
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "hello-provider-service"
+  },
+  "spec": {
+    "type": "NodePort",
+    "selector": {
+      "app": "hello-provider"
     },
-    "spec": {
-      "type": "NodePort",
-      "selector": {
-        "app": "hello-provider"
-      },
-      "ports": [
-        {
-          "protocol": "TCP",
-          "port": 80,
-          "targetPort": 3333,
-          "name": "hello-provider-service"
-        }
-      ]
-    }
+    "ports": [
+      {
+        "protocol": "TCP",
+        "port": 80,
+        "targetPort": 3333,
+        "name": "hello-provider-service"
+      }
+    ]
   }
-  
+}
