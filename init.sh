@@ -23,15 +23,13 @@ function exists {
 
 
 # Install dependencies
-exists npm minikube kubectl cfssl cfssljson
+exists npm k3d kubectl docker 
 
 # Start minikube
-if [ ! $(minikube status | grep -c "Running") -eq 1 ]
+if [ ! $(k3d cluster list | grep -c "poc9") -eq 1 ]
 then
-    minikube start
+    k3d cluster create -c k3d.yml poc9
 fi
-
-eval $(minikube -p minikube docker-env)
 
 echo "${yellow}🔨 Building apps$normal"
 npx nx build hello-consumer &
@@ -43,20 +41,23 @@ docker build -f apps/hello-consumer/Dockerfile -t hello-consumer . &
 docker build -f apps/hello-provider/Dockerfile -t hello-provider . &
 wait
 
+k3d image import hello-consumer -c poc9
+k3d image import hello-provider -c poc9
+
 echo "${yellow}🤫 Deploying secrets$normal"
-# kubectl apply -f apps/vault/namespace.json
 kubectl apply -f apps/misc/secrets/redis_secrets.json
 kubectl apply -f apps/misc/secrets/jwt_secrets.json
 
 
 echo "${yellow}🖥️ Deploying the app $normal"
 kubectl apply -f ./apps/kubeview/kubeview.yaml &
-find . -name "service.json" -exec kubectl apply -f {} \; 
-find . -name deployment.json -exec kubectl apply -f {} \; 
+kubectl apply -f ./apps/hello-consumer/ingress.json &
+find . -name "service.json" -exec kubectl apply -f {} \; &
+find . -name deployment.json -exec kubectl apply -f {} \; &
 
 wait
 
-url="$(minikube service hello-consumer-service --url)"
+url="http://localhost:8080"
 echo "🚀 ${green}App ready! Use it with the following commands$normal"
 echo "curl --location --request POST '$url/api/signup' \
 --header 'Content-Type: application/json' \
@@ -68,4 +69,4 @@ echo "curl --location --request GET '$url/api/hello' \
 
 echo "Run the following command to get an acess token to Consul: kubectl get secrets/consul-bootstrap-acl-token --template='{{.data.token | base64decode }}'"
 echo "Run the following command to map Consul to your local machine: kubectl port-forward -n consul service/consul-ui 8080:443 --address 0.0.0.0"
-echo "Kubeview is also available on your browser at $(minikube service kubeview --url) to have an overview of the cluster"
+# echo "Kubeview is also available on your browser at $url/kubeview to have an overview of the cluster"
