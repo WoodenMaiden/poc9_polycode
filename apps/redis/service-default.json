@@ -1,0 +1,10 @@
+{
+  "apiVersion": "consul.hashicorp.com/v1alpha1",
+  "kind": "ServiceDefaults",
+  "metadata": {
+    "name": "redis-server-service"
+  },
+  "spec": {
+    "protocol": "tcp"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "apiVersion": "consul.hashicorp.com/v1alpha1",
+  "kind": "ServiceIntentions",
+  "metadata": {
+    "name": "consumer-to-redis"
+  },
+  "spec": {
+    "destination": {
+      "name": "redis-server-service"
+    },
+    "sources": [
+      {
+        "name": "hello-consumer-service",
+        "action": "allow"
+      }
+    ]
+  }
+}

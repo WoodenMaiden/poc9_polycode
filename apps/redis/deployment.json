@@ -15,9 +15,13 @@
         "metadata": {
           "labels": {
             "app": "redis-server"
+          },
+          "annotations": {
+            "consul.hashicorp.com/connect-inject": "true"
           }
         },
         "spec": {
+          "serviceAccountName": "redis-server-service",
           "containers": [
             {
               "name": "redis-server",

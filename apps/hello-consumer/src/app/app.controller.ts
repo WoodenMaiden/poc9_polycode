@@ -24,4 +24,9 @@ export class AppController {
   async signup(@Body() credentials: Creds) {
     return this.appService.signup(credentials);
   }
+
+  @Get("/ping")
+  ping() {
+    return "pong";
+  }
 }

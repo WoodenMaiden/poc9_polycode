@@ -5,6 +5,7 @@ red=$(tput setaf 1)
 yellow=$(tput setaf 3)
 green=$(tput setaf 2)
 normal=$(tput sgr0)
+blue=$(tput setaf 4)
 
 # This script is used to initialize the environment
 
@@ -48,25 +49,31 @@ echo "${yellow}🤫 Deploying secrets$normal"
 kubectl apply -f apps/misc/secrets/redis_secrets.json
 kubectl apply -f apps/misc/secrets/jwt_secrets.json
 
+kubectl apply -f apps/consul/consul.yaml
+echo "${yellow}😴 Waiting for consul to be ready$normal"
+kubectl wait --for=condition=available deployment/consul-connect-injector --timeout=1200s
+
+echo "${yellow}🔌 Applying consul Intents$normal"
+find apps/consul/policies -exec kubectl apply -f {} \;
 
 echo "${yellow}🖥️ Deploying the app $normal"
 kubectl apply -f ./apps/kubeview/kubeview.yaml &
-kubectl apply -f ./apps/hello-consumer/ingress.json &
-find . -name "service.json" -exec kubectl apply -f {} \; &
+kubectl apply -f ./apps/consul/ingress.json &
+find . -name "service*.json" -exec kubectl apply -f {} \; &
 find . -name deployment.json -exec kubectl apply -f {} \; &
 
 wait
 
 url="http://localhost:8080"
 echo "🚀 ${green}App ready! Use it with the following commands$normal"
-echo "curl --location --request POST '$url/api/signup' \
+echo "curl --location --header \"Host: hello-consumer-service.ingress.consul\" --request POST '$url/api/signup' \
 --header 'Content-Type: application/json' \
 --data-raw '{\"username\": \"Yann\", \"password\": \"password\"}'"
 
-echo "curl --location --request GET '$url/api/hello' \
+echo "curl --header \"Host: hello-consumer-service.ingress.consul\" --location --request GET '$url/api/hello' \
 --header 'Content-Type: application/json' \
 --header 'Authorization: Bearer <token you got previously>'"
 
 echo "Run the following command to get an acess token to Consul: kubectl get secrets/consul-bootstrap-acl-token --template='{{.data.token | base64decode }}'"
-echo "Run the following command to map Consul to your local machine: kubectl port-forward -n consul service/consul-ui 8080:443 --address 0.0.0.0"
-# echo "Kubeview is also available on your browser at $url/kubeview to have an overview of the cluster"
+echo "Run the following command to map Consul to your local machine: kubectl port-forward service/consul-ui 8082:443 --address 0.0.0.0"
+echo "Kubeview is also available on your browser, run kubectl port-forward service/kubeview 8081:80 --address 0.0.0.0"

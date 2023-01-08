@@ -15,9 +15,13 @@
         "metadata": {
           "labels": {
             "app": "hello-provider"
+          },
+          "annotations": {
+            "consul.hashicorp.com/connect-inject": "true"
           }
         },
         "spec": {
+          "serviceAccountName": "hello-provider-service",
           "containers": [
             {
               "name": "hello-provider",

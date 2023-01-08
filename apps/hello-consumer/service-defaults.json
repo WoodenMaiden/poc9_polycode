@@ -1,0 +1,10 @@
+{
+  "apiVersion": "consul.hashicorp.com/v1alpha1",
+  "kind": "ServiceDefaults",
+  "metadata": {
+    "name": "hello-consumer-service"
+  },
+  "spec": {
+    "protocol": "http"
+  }
+}

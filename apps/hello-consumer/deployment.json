@@ -15,9 +15,13 @@
       "metadata": {
         "labels": {
           "app": "hello-consumer"
+        },
+        "annotations": {
+          "consul.hashicorp.com/connect-inject": "true"
         }
       },
       "spec": {
+        "serviceAccountName": "hello-consumer-service",
         "containers": [
           {
             "name": "hello-consumer",

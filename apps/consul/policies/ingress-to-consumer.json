@@ -1,0 +1,18 @@
+{
+  "apiVersion": "consul.hashicorp.com/v1alpha1",
+  "kind": "ServiceIntentions",
+  "metadata": {
+    "name": "ingress-gateway"
+  },
+  "spec": {
+    "destination": {
+      "name": "hello-consumer-service"
+    },
+    "sources": [
+      {
+        "name": "ingress-gateway",
+        "action": "allow"
+      }
+    ]
+  }
+}
