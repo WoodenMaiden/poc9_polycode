@@ -1,0 +1,18 @@
+{
+  "apiVersion": "consul.hashicorp.com/v1alpha1",
+  "kind": "ServiceIntentions",
+  "metadata": {
+    "name": "vault-to-consumer"
+  },
+  "spec": {
+    "destination": {
+      "name": "hello-consumer-service"
+    },
+    "sources": [
+      {
+        "name": "vault",
+        "action": "allow"
+      }
+    ]
+  }
+}

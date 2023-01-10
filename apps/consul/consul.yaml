@@ -177,8 +177,8 @@ data:
       "data_dir": "/consul/data",
       "domain": "consul",
       "ports": {
-        "grpc": -1,
-        "grpc_tls": 8502,
+        "grpc": 8502,
+        "grpc_tls": -1,
         "serf_lan": 8301
       },
       "recursors": [],
@@ -195,28 +195,6 @@ data:
         "default_policy": "deny",
         "down_policy": "extend-cache",
         "enable_token_persistence": true
-      }
-    }
-  tls-config.json: |-
-    {
-      "tls": {
-        "internal_rpc": {
-          "verify_incoming": true,
-          "verify_server_hostname": true
-        },
-        "grpc": {
-          "verify_incoming": false
-        },
-        "defaults": {
-          "verify_outgoing": true,
-          "ca_file": "/consul/tls/ca/tls.crt",
-          "cert_file": "/consul/tls/server/tls.crt",
-          "key_file": "/consul/tls/server/tls.key"
-        }
-      },
-      "ports": {
-        "http": -1,
-        "https": 8501
       }
     }
   ui-config.json: |-
@@ -3361,9 +3339,9 @@ spec:
   # since this DNS is also used for join operations.
   publishNotReadyAddresses: true
   ports:
-    - name: https
-      port: 8501
-      targetPort: 8501
+    - name: http
+      port: 8500
+      targetPort: 8500
     - name: grpc
       port: 8502
       targetPort: 8502
@@ -3418,9 +3396,10 @@ spec:
     release: "consul"
     component: server
   ports:
-    - name: https
-      port: 443
-      targetPort: 8501
+    - name: http
+      port: 80
+      targetPort: 8500
+      nodePort: 30000
   type: NodePort
 ---
 # Source: consul/templates/connect-inject-deployment.yaml
@@ -3476,15 +3455,11 @@ spec:
             - name: CONSUL_GRPC_PORT
               value: "8502"
             - name: CONSUL_HTTP_PORT
-              value: "8501"
+              value: "8500"
             - name: CONSUL_DATACENTER
               value: poc9
             - name: CONSUL_API_TIMEOUT
               value: 5s
-            - name: CONSUL_USE_TLS
-              value: "true"
-            - name: CONSUL_CACERT_FILE
-              value: "/consul/tls/ca/tls.crt"
             - name: CONSUL_LOGIN_AUTH_METHOD
               value: consul-k8s-component-auth-method
             - name: CONSUL_LOGIN_DATACENTER
@@ -3555,9 +3530,6 @@ spec:
             - name: certs
               mountPath: /etc/connect-injector/certs
               readOnly: true
-            - name: consul-ca-cert
-              mountPath: /consul/tls/ca
-              readOnly: true
           resources:
             limits:
               cpu: 50m
@@ -3570,12 +3542,6 @@ spec:
           secret:
             defaultMode: 420
             secretName: consul-connect-inject-webhook-cert
-        - name: consul-ca-cert
-          secret:
-              secretName: consul-ca-cert
-              items:
-                - key: tls.crt
-                  path: tls.crt
 ---
 # Source: consul/templates/ingress-gateways-deployment.yaml
 apiVersion: apps/v1
@@ -3623,12 +3589,6 @@ spec:
       - name: consul-service
         emptyDir:
           medium: "Memory"
-      - name: consul-ca-cert
-        secret:
-          secretName: consul-ca-cert
-          items:
-          - key: tls.crt
-            path: tls.crt
       initContainers:
       # ingress-gateway-init registers the ingress gateway service with Consul.
       - name: ingress-gateway-init
@@ -3651,15 +3611,11 @@ spec:
         - name: CONSUL_GRPC_PORT
           value: "8502"
         - name: CONSUL_HTTP_PORT
-          value: "8501"
+          value: "8500"
         - name: CONSUL_DATACENTER
           value: poc9
         - name: CONSUL_API_TIMEOUT
           value: 5s
-        - name: CONSUL_USE_TLS
-          value: "true"
-        - name: CONSUL_CACERT_FILE
-          value: "/consul/tls/ca/tls.crt"
         - name: CONSUL_LOGIN_AUTH_METHOD
           value: consul-k8s-component-auth-method
         - name: CONSUL_LOGIN_DATACENTER
@@ -3681,9 +3637,6 @@ spec:
         volumeMounts:
         - name: consul-service
           mountPath: /consul/service
-        - name: consul-ca-cert
-          mountPath: /consul/tls/ca
-          readOnly: true
         resources:
           requests:
             memory: "50Mi"
@@ -3704,9 +3657,6 @@ spec:
         volumeMounts:
         - name: consul-service
           mountPath: /consul/service
-          readOnly: true
-        - name: consul-ca-cert
-          mountPath: /consul/tls/ca
           readOnly: true
         env:
         - name: POD_NAME
@@ -3742,7 +3692,7 @@ spec:
         - -addresses=consul-server.default.svc
         - -grpc-port=8502
         - -proxy-service-id-path=/consul/service/proxy-id
-        - -ca-certs=/consul/tls/ca/tls.crt
+        - -tls-disabled
         - -credential-type=login
         - -login-bearer-token-path=/var/run/secrets/kubernetes.io/serviceaccount/token
         - -login-auth-method=consul-k8s-component-auth-method
@@ -3869,7 +3819,7 @@ spec:
         hasDNS: "true"
       annotations:
         "consul.hashicorp.com/connect-inject": "false"
-        "consul.hashicorp.com/config-checksum": 62a9fb64cd6d06320a823bf43e1d310d24199c9c94f0061f3bba77c183149a31
+        "consul.hashicorp.com/config-checksum": f2dc7a72ddffa0d09620c4b6b54f99ea66493bf483e1863b4c5f660a5b95778e
     spec:
       affinity:
         podAntiAffinity:
@@ -3893,15 +3843,6 @@ spec:
             name: consul-server-config
         - name: extra-config
           emptyDir: {}
-        - name: consul-ca-cert
-          secret:
-            secretName: consul-ca-cert
-            items:
-            - key: tls.crt
-              path: tls.crt
-        - name: consul-server-cert
-          secret:
-            secretName: consul-server-cert
       containers:
         - name: consul
           image: "hashicorp/consul:1.14.2"
@@ -3920,10 +3861,6 @@ spec:
                   fieldPath: status.podIP
             - name: CONSUL_DISABLE_PERM_MGMT
               value: "true"
-            - name: CONSUL_HTTP_ADDR
-              value: https://localhost:8501
-            - name: CONSUL_CACERT
-              value: /consul/tls/ca/tls.crt
             
           command:
             - "/bin/sh"
@@ -3946,15 +3883,9 @@ spec:
               mountPath: /consul/config
             - name: extra-config
               mountPath: /consul/extra-config
-            - name: consul-ca-cert
-              mountPath: /consul/tls/ca/
-              readOnly: true
-            - name: consul-server-cert
-              mountPath: /consul/tls/server
-              readOnly: true
           ports:
-            - name: https
-              containerPort: 8501
+            - name: http
+              containerPort: 8500
             - name: grpc
               containerPort: 8502
               protocol: "TCP"
@@ -3986,8 +3917,7 @@ spec:
                 - "/bin/sh"
                 - "-ec"
                 - |
-                  curl -k \
-                    https://127.0.0.1:8501/v1/status/leader \
+                  curl http://127.0.0.1:8500/v1/status/leader \
                   2>/dev/null | grep -E '".+"'
             failureThreshold: 2
             initialDelaySeconds: 5
@@ -4039,13 +3969,6 @@ spec:
     spec:
       restartPolicy: Never
       serviceAccountName: consul-server-acl-init
-      volumes:
-      - name: consul-ca-cert
-        secret:
-          secretName: consul-ca-cert
-          items:
-          - key: tls.crt
-            path: tls.crt
       containers:
       - name: server-acl-init-job
         image: hashicorp/consul-k8s-control-plane:1.0.2
@@ -4063,19 +3986,11 @@ spec:
         - name: CONSUL_GRPC_PORT
           value: "8502"
         - name: CONSUL_HTTP_PORT
-          value: "8501"
+          value: "8500"
         - name: CONSUL_DATACENTER
           value: poc9
         - name: CONSUL_API_TIMEOUT
           value: 5s
-        - name: CONSUL_USE_TLS
-          value: "true"
-        - name: CONSUL_CACERT_FILE
-          value: "/consul/tls/ca/tls.crt"
-        volumeMounts:
-        - name: consul-ca-cert
-          mountPath: /consul/tls/ca
-          readOnly: true
         command:
         - "/bin/sh"
         - "-ec"
@@ -4353,135 +4268,6 @@ webhooks:
           operator: "NotIn"
           values: ["kube-system","local-path-storage"]
 ---
-# Source: consul/templates/tls-init-cleanup-serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: consul-tls-init-cleanup
-  namespace: default
-  labels:
-    app: consul
-    chart: consul-helm
-    heritage: Helm
-    release: consul
-    component: tls-init-cleanup
-  annotations:
-    "helm.sh/hook": pre-delete
-    "helm.sh/hook-delete-policy": hook-succeeded
----
-# Source: consul/templates/tls-init-serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: consul-tls-init
-  namespace: default
-  labels:
-    app: consul
-    chart: consul-helm
-    heritage: Helm
-    release: consul
-    component: tls-init
-  annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
-    "helm.sh/hook-delete-policy": before-hook-creation
----
-# Source: consul/templates/tls-init-cleanup-role.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: consul-tls-init-cleanup
-  namespace: default
-  labels:
-    app: consul
-    chart: consul-helm
-    heritage: Helm
-    release: consul
-    component: tls-init-cleanup
-  annotations:
-    "helm.sh/hook": pre-delete
-    "helm.sh/hook-delete-policy": hook-succeeded
-rules:
-- apiGroups: [""]
-  resources:
-    - secrets
-  resourceNames:
-    - consul-ca-cert
-    - consul-ca-key
-    - consul-server-cert
-  verbs:
-    - delete
----
-# Source: consul/templates/tls-init-role.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: consul-tls-init
-  namespace: default
-  labels:
-    app: consul
-    chart: consul-helm
-    heritage: Helm
-    release: consul
-    component: tls-init
-  annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
-    "helm.sh/hook-delete-policy": before-hook-creation
-rules:
-- apiGroups: [""]
-  resources:
-    - secrets
-  verbs:
-    - create
-    - update
-    - get
-    - list
----
-# Source: consul/templates/tls-init-cleanup-rolebinding.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: consul-tls-init-cleanup
-  namespace: default
-  labels:
-    app: consul
-    chart: consul-helm
-    heritage: Helm
-    release: consul
-    component: tls-init-cleanup
-  annotations:
-    "helm.sh/hook": pre-delete
-    "helm.sh/hook-delete-policy": hook-succeeded
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: consul-tls-init-cleanup
-subjects:
-- kind: ServiceAccount
-  name: consul-tls-init-cleanup
----
-# Source: consul/templates/tls-init-rolebinding.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: consul-tls-init
-  namespace: default
-  labels:
-    app: consul
-    chart: consul-helm
-    heritage: Helm
-    release: consul
-    component: tls-init
-  annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
-    "helm.sh/hook-delete-policy": before-hook-creation
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: consul-tls-init
-subjects:
-- kind: ServiceAccount
-  name: consul-tls-init
----
 # Source: consul/templates/tests/test-runner.yaml
 apiVersion: v1
 kind: Pod
@@ -4496,16 +4282,6 @@ metadata:
   annotations:
     "helm.sh/hook": test-success
 spec:
-  volumes:
-    - name: consul-ca-cert
-      secret:
-        secretName: consul-ca-cert
-        items:
-        - key: tls.crt
-          path: tls.crt
-    - name: consul-auto-encrypt-ca-cert
-      emptyDir:
-        medium: "Memory"
   containers:
     - name: consul-test
       image: "hashicorp/consul:1.14.2"
@@ -4515,13 +4291,7 @@ spec:
             fieldRef:
               fieldPath: status.hostIP
         - name: CONSUL_HTTP_ADDR
-          value: https://$(HOST_IP):8501
-        - name: CONSUL_CACERT
-          value: /consul/tls/ca/tls.crt
-      volumeMounts:
-      - name: consul-ca-cert
-        mountPath: /consul/tls/ca
-        readOnly: true
+          value: http://$(HOST_IP):8500
       command:
         - "/bin/sh"
         - "-ec"
@@ -4588,137 +4358,6 @@ spec:
             - -log-json=false
             - -k8s-namespace=default
             - consul-server-acl-init
-          resources:
-            requests:
-              memory: "50Mi"
-              cpu: "50m"
-            limits:
-              memory: "50Mi"
-              cpu: "50m"
----
-# Source: consul/templates/tls-init-cleanup-job.yaml
-# tls-init-cleanup job deletes Kubernetes secrets created by tls-init
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: consul-tls-init-cleanup
-  namespace: default
-  labels:
-    app: consul
-    chart: consul-helm
-    heritage: Helm
-    release: consul
-    component: tls-init-cleanup
-  annotations:
-    "helm.sh/hook": pre-delete
-    "helm.sh/hook-delete-policy": hook-succeeded
-    "helm.sh/hook-weight": "1"
-spec:
-  template:
-    metadata:
-      name: consul-tls-init-cleanup
-      labels:
-        app: consul
-        chart: consul-helm
-        release: consul
-        component: tls-init-cleanup
-      annotations:
-        "consul.hashicorp.com/connect-inject": "false"
-    spec:
-      restartPolicy: Never
-      serviceAccountName: consul-tls-init-cleanup
-      containers:
-        - name: tls-init-cleanup
-          image: "hashicorp/consul:1.14.2"
-          env:
-            - name: NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-          command:
-            - "/bin/sh"
-            - "-ec"
-            - |
-              curl -s -X DELETE --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
-                https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT}/api/v1/namespaces/${NAMESPACE}/secrets/consul-ca-cert \
-                -H "Authorization: Bearer $( cat /var/run/secrets/kubernetes.io/serviceaccount/token )"
-              curl -s -X DELETE --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
-                https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT}/api/v1/namespaces/${NAMESPACE}/secrets/consul-ca-key \
-                -H "Authorization: Bearer $( cat /var/run/secrets/kubernetes.io/serviceaccount/token )"
-              curl -s -X DELETE --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
-                https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT}/api/v1/namespaces/${NAMESPACE}/secrets/consul-server-cert \
-                -H "Authorization: Bearer $( cat /var/run/secrets/kubernetes.io/serviceaccount/token )"
-          resources:
-            requests:
-              memory: "50Mi"
-              cpu: "50m"
-            limits:
-              memory: "50Mi"
-              cpu: "50m"
----
-# Source: consul/templates/tls-init-job.yaml
-# tls-init job generate Consul cluster CA and certificates for the Consul servers
-# and creates Kubernetes secrets for them.
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: consul-tls-init
-  namespace: default
-  labels:
-    app: consul
-    chart: consul-helm
-    heritage: Helm
-    release: consul
-    component: tls-init
-  annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
-    "helm.sh/hook-weight": "1"
-    "helm.sh/hook-delete-policy":  hook-succeeded,before-hook-creation
-spec:
-  template:
-    metadata:
-      name: consul-tls-init
-      labels:
-        app: consul
-        chart: consul-helm
-        release: consul
-        component: tls-init
-      annotations:
-        "consul.hashicorp.com/connect-inject": "false"
-    spec:
-      restartPolicy: Never
-      serviceAccountName: consul-tls-init
-      containers:
-        - name: tls-init
-          image: "hashicorp/consul-k8s-control-plane:1.0.2"
-          env:
-            - name: NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-          workingDir: /tmp
-          command:
-            - "/bin/sh"
-            - "-ec"
-            - |
-              # Suppress globbing so we can interpolate the $NAMESPACE environment variable
-              # and use * at the start of the dns name when setting -additional-dnsname.
-              set -o noglob
-              consul-k8s-control-plane tls-init \
-                -log-level=info \
-                -log-json=false \
-                -domain=consul \
-                -days=730 \
-                -name-prefix=consul \
-                -k8s-namespace=${NAMESPACE} \
-                -additional-dnsname="consul-server" \
-                -additional-dnsname="*.consul-server" \
-                -additional-dnsname="*.consul-server.${NAMESPACE}" \
-                -additional-dnsname="consul-server.${NAMESPACE}" \
-                -additional-dnsname="*.consul-server.${NAMESPACE}.svc" \
-                -additional-dnsname="consul-server.${NAMESPACE}.svc" \
-                -additional-dnsname="*.server.poc9.consul" \
-                -dc=poc9
           resources:
             requests:
               memory: "50Mi"

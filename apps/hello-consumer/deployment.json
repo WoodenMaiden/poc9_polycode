@@ -17,7 +17,10 @@
           "app": "hello-consumer"
         },
         "annotations": {
-          "consul.hashicorp.com/connect-inject": "true"
+          "consul.hashicorp.com/connect-inject": "true",
+          "vault.hashicorp.com/agent-inject": "true",
+          "vault.hashicorp.com/role": "redis-role",
+          "vault.hashicorp.com/agent-inject-secret-database-creds": "secret/redis-secret/"
         }
       },
       "spec": {
@@ -31,6 +34,10 @@
               {
                 "name": "APIURL",
                 "value": "http://hello-provider-service.default.svc.cluster.local/api/hello"
+              },
+              {
+                "name": "SECRET_STATEGY",
+                "value": "vault-file"
               },
               {
                 "name": "REDIS_PASSWORD",

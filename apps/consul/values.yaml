@@ -9,7 +9,7 @@ global:
   datacenter: poc9
   # Enables TLS across the cluster to verify authenticity of the Consul servers and clients.
   tls:
-    enabled: true
+    enabled: false
   # Enables ACLs across the cluster to secure access to data and APIs.
   acls:
     logLevel: debug 
@@ -27,7 +27,7 @@ ui:
   service:
     type: NodePort
     nodePort:
-      http: 8080
+      http: 30000
 # Configures and installs the automatic Consul Connect sidecar injector.
 connectInject:
   enabled: true
